@@ -1,6 +1,8 @@
 #include "facenet_tf.h"
 #include <dirent.h>
 #include <string.h>
+Ptr<ml::KNearest>  k_nearest(ml::KNearest::create());
+#define K_VALUE 3
 FacenetClassifier::FacenetClassifier (string operation, string model_path, string svm_model_path, string labels_file_path) {
 	this->operation = operation;
 	this->model_path = model_path;
@@ -25,6 +27,7 @@ void FacenetClassifier::save_labels () {
 }
 
 void FacenetClassifier::load_labels () {
+	class_labels.clear ();
 	labels_file.open (labels_file_path, fstream::in);
 	int count = 0;
 	while (true) {
@@ -36,6 +39,7 @@ void FacenetClassifier::load_labels () {
 		count++;
 	}
 	labels_file.close ();
+	cout << class_labels.size() << endl;
 }
 
 void FacenetClassifier::parse_images_path (string directory_path, int depth) {
@@ -67,6 +71,7 @@ void FacenetClassifier::parse_images_path (string directory_path, int depth) {
 					cout << file_path << ":" << class_count << endl;
 					input_images.push_back (image);
 					output_labels.push_back (class_count); //For Training
+					mat_training_ints.push_back (class_count);
 					input_files.push_back (file_path); //For Classification
 				}
 			}
@@ -121,6 +126,10 @@ void FacenetClassifier::run () {
 	Mat output_mat;
 	for (int i = 0; i < input_images.size(); i++) {
 		Mat mat_row (cv::Size (128, 1), CV_32F, p + i*128, Mat::AUTO_STEP);
+		Mat mat_row_float, mat_tensor_reshaped;
+		mat_row.convertTo (mat_row_float, CV_32FC1);
+		mat_tensor_reshaped = mat_row_float.reshape (1,1);
+		mat_training_tensors.push_back (mat_tensor_reshaped);
 		if (i == 0)
 			output_mat = mat_row;
 		else
@@ -138,6 +147,19 @@ void FacenetClassifier::save_svm () {
 	cout << "Training Complete" << endl;
 }
 
+void FacenetClassifier::save_knn () {
+	Mat mat_training_floats;
+	mat_training_ints.convertTo(mat_training_floats, CV_32FC1);
+	
+	FileStorage training_labels_file ("labels.xml", FileStorage::WRITE);
+	training_labels_file << "classifications" << mat_training_floats;
+	training_labels_file.release ();
+
+	FileStorage training_tensors_file (svm_model_path, FileStorage::WRITE);
+	training_tensors_file << "images" << mat_training_tensors;
+	training_tensors_file.release ();
+}
+
 void FacenetClassifier::load_svm () {
 	svm = Algorithm::load<SVM>(svm_model_path);
 	cout << "SVM Model Loaded" << endl;
@@ -145,7 +167,7 @@ void FacenetClassifier::load_svm () {
 
 void FacenetClassifier::predict_labels () {
 	Mat svm_response;
-	svm->predict (output_mat, svm_response, StatModel::RAW_OUTPUT);
+	svm->predict (output_mat, svm_response);
 	//svm->predict (output_mat, svm_response);
 	cout << "SVM Response: " << svm_response << endl;
   for (int i = 0 ; i < svm_response.rows; i++) {
@@ -154,4 +176,39 @@ void FacenetClassifier::predict_labels () {
   	cout << input_files[i] << ": " << svm_response.at<float>(i) << endl;
     //cout << input_files[i] << ": " << class_labels[class_number-1].class_name << endl;
   }
+}
+
+void FacenetClassifier::load_knn () {
+	FileStorage labels_knn("labels.xml", FileStorage::READ);
+	labels_knn["classifications"] >> mat_training_ints;
+	labels_knn.release();
+	cout << "KNN Labels: " << mat_training_ints.size() << endl;
+	cout << "Reading " << model_path << endl;
+	FileStorage tensors (svm_model_path, FileStorage::READ);
+	tensors["images"] >> mat_training_tensors;
+	tensors.release();
+	cout << "KNN Tensors: " << mat_training_tensors.size() << endl;
+	//k_nearest = (KNearest *) KNearest::create();
+	cout << "Train: " << k_nearest->train (mat_training_tensors, ml::ROW_SAMPLE, mat_training_ints) << endl;
+}
+
+void FacenetClassifier::predict_knn_labels () {
+	Mat current_class(0, 0, CV_32F);
+	Mat current_response(0, 0, CV_32F);
+	Mat current_distance (0, 0, CV_32F);
+	float current_class_float, response, distance;
+	float prediction;
+	for (int i = 0; i < input_images.size(); i++) {
+		Mat input_mat, input_mat_flattened;
+		mat_training_tensors.row(i).convertTo (input_mat, CV_32FC1);
+		input_mat_flattened = input_mat.reshape (1,1);
+		prediction = k_nearest->findNearest (input_mat, K_VALUE, current_class, current_response, current_distance);
+		
+		current_class_float = (float) current_class.at<float>(0,0);
+		response = (float) current_response.at<float>(0,0);
+		distance = (float) current_distance.at<float>(0,0);
+	
+		cout << mat_training_tensors.row(i).size() << " " << prediction << " " << input_files[i] << ": " << current_class_float << " " << response << " " << distance << " " << class_labels[current_class_float -1].class_number << " " << class_labels[current_class_float - 1].class_name << endl;
+	}
+	
 }
