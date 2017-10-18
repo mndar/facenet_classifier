@@ -6,7 +6,7 @@ using namespace std;
 int main (int argc, char *argv[]) {
 	if (argc < 7) {
 		cout << "Usage:\n"
-						"./facenet_classify <TRAIN|CLASSIFY>  <Path/To/TensorFlowModel> <Path/To/Image/Directory/Structure> <Path/To/SVM/Model> <SVM/Class/Labels> <SVM|KNN>\n"
+						"./facenet_classify <TRAIN|CLASSIFY>  <Path/To/TensorFlowModel> <Path/To/Image/Directory/Structure> <Path/To/SVM/Model> <SVM/Class/Labels> <SVM|KNN|MLP>\n"
 						"Directory structure should be <class_name>/<image_files>\n"
 						"Face Images Should be 160x160\n" << endl;
 		return 1;
