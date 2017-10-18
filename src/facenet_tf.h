@@ -36,7 +36,10 @@ class FacenetClassifier {
 		Tensor input_tensor, phase_tensor;
 		Mat output_mat;
 		Ptr<SVM> svm;
+		//KNearest  *k_nearest;
 		fstream labels_file;
+		//For KNN
+		Mat mat_training_ints, mat_training_tensors;
 	public:
 		FacenetClassifier (string operation, string model, string svm_model_path, string labels_file_path);
 		void parse_images_path (string images_directory_path, int depth);
@@ -47,7 +50,16 @@ class FacenetClassifier {
 		void load_svm ();
 		void save_labels ();
 		void load_labels ();
+		
+		void save_knn ();
 		void predict_labels ();
+		
+		void load_knn ();
+		void predict_knn_labels ();
+		
+		void save_mlp ();
+		void load_mlp ();
+		void predict_mlp_labels ();
 };
 #endif
 
