@@ -12,9 +12,10 @@ Usage
 
 Issues
 ====================
-- Little testing done
-- I'm using the SVM implementaion in OpenCV 3.3.0 So, there is no prediction value I can extract unless it's a binary classification. I'm thinking of creating a branch that using KNN.
+- More Testing Needed
+- Results are good with more than one input image given to the pre-trained model.
 
 Instructions to compile Tensor Flow C++ shared library
 =====================
+- https://www.tensorflow.org/install/install_sources to get libtensorflow_framework.so in /usr/lib/python2.7/site-packages/tensorflow/
 - http://tuatini.me/building-tensorflow-as-a-standalone-project/
