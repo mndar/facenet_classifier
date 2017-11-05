@@ -258,7 +258,7 @@ void FacenetClassifier::predict_knn_labels () {
 
 	for (int i = 0; i < input_images.size(); i++) {
 		Mat input_mat, input_mat_flattened;
-		mat_training_tensors.row(i).convertTo (input_mat, CV_32FC3);
+		output_mat.row(i).convertTo (input_mat, CV_32FC3);
 		input_mat_flattened = input_mat.reshape (0,1);
 		
 		prediction = k_nearest->findNearest (input_mat_flattened, K_VALUE, current_class, current_response, current_distance);
