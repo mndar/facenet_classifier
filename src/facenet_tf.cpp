@@ -156,7 +156,7 @@ void FacenetClassifier::save_mlp () {
 	layers(2) = nclasses * 4;  // hidden
 	layers(3) = nclasses;      // output, 1 pin per class.
 	ann->setLayerSizes(layers);
-	ann->setActivationFunction(ml::ANN_MLP::SIGMOID_SYM,0,0);
+	ann->setActivationFunction(ml::ANN_MLP::SIGMOID_SYM,1,1);
 	ann->setTermCriteria(TermCriteria(TermCriteria::MAX_ITER+TermCriteria::EPS, 300, 0.0001));
 	ann->setTrainMethod(ml::ANN_MLP::BACKPROP, 0.0001);
 	// ann requires "one-hot" encoding of class labels:
