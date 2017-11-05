@@ -185,7 +185,7 @@ void FacenetClassifier::predict_mlp_labels () {
 		Mat input_mat;
 		Mat result;
 		
-		mat_training_tensors.row(i).convertTo (input_mat, CV_32F);
+		output_mat.row(i).convertTo (input_mat, CV_32F);
 		prediction = ann->predict (input_mat, result);
 		cout << input_files[i] << " " << prediction << " " << result.size() << " " << result.at<float>(0, prediction) << endl;
 		
