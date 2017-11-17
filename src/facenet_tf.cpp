@@ -12,10 +12,9 @@ FacenetClassifier::FacenetClassifier (string operation, string model_path, strin
 	this->svm_model_path = svm_model_path;
 	this->labels_file_path = labels_file_path;
 	ReadBinaryProto(tensorflow::Env::Default(), model_path.c_str(), &graph_def);
-	tensorflow::SessionOptions options;
+	/*tensorflow::SessionOptions options;
 	tensorflow::NewSession (options, &session);
-	session->Create (graph_def);
-	
+	session->Create (graph_def);*/
 }
 
 void FacenetClassifier::save_labels () {
@@ -43,6 +42,25 @@ void FacenetClassifier::load_labels () {
 	}
 	labels_file.close ();
 	cout << class_labels.size() << endl;
+}
+
+void FacenetClassifier::preprocess_input_mat () {
+	for (auto &image: input_images) {
+		//mean and std
+		cvtColor(image,image, CV_RGB2BGR);
+		cv::Mat temp = image.reshape(1, image.rows * 3);
+		cv::Mat     mean3;
+		cv::Mat     stddev3;
+		cv::meanStdDev(temp, mean3, stddev3);
+
+		double mean_pxl = mean3.at<double>(0);
+		double stddev_pxl = stddev3.at<double>(0);
+		cv::Mat image2;
+		image.convertTo(image2, CV_64FC1);
+		image = image2;
+		image = image - cv::Vec3d(mean_pxl, mean_pxl, mean_pxl);
+		image = image / stddev_pxl;
+	}
 }
 
 void FacenetClassifier::parse_images_path (string directory_path, int depth) {
@@ -95,16 +113,15 @@ void FacenetClassifier::create_input_tensor () {
 		// create a "fake" cv::Mat from it 
 		Mat camera_image(160 , 160, CV_32FC3, p + i*160*160*3);	
 		input_images[i].convertTo(camera_image, CV_32FC3);
-
 	}
 	cout << input_tensor.DebugString() << endl;
-	this->input_tensor = input_tensor;
+	this->input_tensor = Tensor (input_tensor);
 }
 
 void FacenetClassifier::create_phase_tensor () {
 	tensorflow::Tensor phase_tensor(tensorflow::DT_BOOL, tensorflow::TensorShape());
-	phase_tensor.scalar<bool>()() = true;
-	this->phase_tensor = phase_tensor;
+	phase_tensor.scalar<bool>()() = false;
+	this->phase_tensor = Tensor (phase_tensor);
 }
 
 void FacenetClassifier::run () {
@@ -116,6 +133,9 @@ void FacenetClassifier::run () {
 		  {input_layer, input_tensor},  
 		  {phase_train_layer, phase_tensor},
 	};    
+	tensorflow::SessionOptions options;
+	tensorflow::NewSession (options, &session);
+	session->Create (graph_def);
 	cout << "Input Tensor: " << input_tensor.DebugString() << endl;
 	Status run_status = session->Run(feed_dict, {output_layer}, {} , &outputs);
 	if (!run_status.ok()) {
@@ -126,19 +146,24 @@ void FacenetClassifier::run () {
 
 	float *p = outputs[0].flat<float>().data();
 	Mat output_mat;
-	for (int i = 0; i < input_images.size(); i++) {
+	for (int i = 0; i < input_images.size(); i++) {		
 		Mat mat_row (cv::Size (128, 1), CV_32F, p + i*128, Mat::AUTO_STEP);
+  	//cout << "Mat Row: " << mat_row << endl;
 		Mat mat_row_float, mat_tensor_reshaped;
-		mat_row.convertTo (mat_row_float, CV_32FC3);
+		mat_row.convertTo (mat_row_float, CV_32F);
 		mat_tensor_reshaped = mat_row_float.reshape (0,1);
-		mat_training_tensors.push_back (mat_tensor_reshaped);
+		//mat_training_tensors.push_back (mat_tensor_reshaped);
+		mat_training_tensors.push_back (mat_row);
+		//output_mat.push_back (mat_row);
 		if (i == 0)
 			output_mat = mat_row;
 		else
 			vconcat (output_mat, mat_row, output_mat);
 	}
-	this->output_mat = output_mat;
-
+	this->output_mat = output_mat.clone ();
+	output_mat.release ();
+	session->Close ();
+	delete session;
 }
 
 void FacenetClassifier::save_mlp () {
@@ -180,20 +205,27 @@ void FacenetClassifier::load_mlp () {
 
 void FacenetClassifier::predict_mlp_labels () {
 	float prediction;
-
+	int j;
 	for (int i = 0; i < input_images.size(); i++) {
 		Mat input_mat;
 		Mat result;
-		
 		output_mat.row(i).convertTo (input_mat, CV_32F);
 		prediction = ann->predict (input_mat, result);
-		cout << input_files[i] << " " << prediction << " " << result.size() << " " << result.at<float>(0, prediction) << endl;
+		cout << input_files[i] << " " << result.size() << " " << prediction << " " << class_labels[prediction].class_name << " " << result.at<float>(0, prediction) << endl;
 		
-		/*Point maxP;
-		minMaxLoc(result, 0,0,0,&maxP);
-		prediction = maxP.x;
-		cout << input_files[i] <<" " << prediction << endl;*/
+		input_mat.release ();
+		result.release ();
 	}
+}
+
+void FacenetClassifier::set_input_images (std::vector<Mat> input, std::vector<string> input_roi) {
+        input_images = input;
+        input_files = input_roi;
+}
+
+void FacenetClassifier::clear_input_images () {
+        input_images.clear ();
+        input_files.clear ();
 }
 
 void FacenetClassifier::save_svm () {
@@ -255,7 +287,7 @@ void FacenetClassifier::predict_knn_labels () {
 	Mat current_distance (0, 0, CV_32F);
 	float current_class_float, response, distance;
 	float prediction;
-
+	int j;
 	for (int i = 0; i < input_images.size(); i++) {
 		Mat input_mat, input_mat_flattened;
 		output_mat.row(i).convertTo (input_mat, CV_32FC3);
@@ -267,5 +299,5 @@ void FacenetClassifier::predict_knn_labels () {
 		distance = (float) current_distance.at<float>(0,0);
 		cout << mat_training_tensors.row(i).size() << " " << prediction << " " << input_files[i] << ": " << current_class_float << " " << distance << endl;
 	}
-	
 }
+

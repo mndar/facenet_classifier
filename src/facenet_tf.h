@@ -50,16 +50,18 @@ class FacenetClassifier {
 		void load_svm ();
 		void save_labels ();
 		void load_labels ();
-		
+		void set_input_images (std::vector<Mat>, std::vector<string>);
+		void clear_input_images ();
 		void save_knn ();
 		void predict_labels ();
-		
+		void preprocess_input_mat ();
 		void load_knn ();
 		void predict_knn_labels ();
 		
 		void save_mlp ();
 		void load_mlp ();
 		void predict_mlp_labels ();
+		
 };
 #endif
 
