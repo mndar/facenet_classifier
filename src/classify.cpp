@@ -20,6 +20,7 @@ int main (int argc, char *argv[]) {
 	ml_type = string (argv[6]); //SVM or KNN or MLP
 	FacenetClassifier classifier = FacenetClassifier (operation, model_path, svm_model_path, labels_file_path);
 	classifier.parse_images_path (images_path, 0);
+	classifier.preprocess_input_mat ();
 	classifier.create_input_tensor ();
 	classifier.create_phase_tensor ();
 	classifier.run ();
