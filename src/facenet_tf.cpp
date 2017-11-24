@@ -6,15 +6,15 @@ Ptr<ml::KNearest>  k_nearest(ml::KNearest::create());
 Ptr<ml::ANN_MLP> 	ann;
 #define K_VALUE 1
 #define N_LAYERS 3
-FacenetClassifier::FacenetClassifier (string operation, string model_path, string svm_model_path, string labels_file_path) {
+FacenetClassifier::FacenetClassifier (string operation, string model_path, string classifier_model_path, string labels_file_path) {
 	this->operation = operation;
 	this->model_path = model_path;
-	this->svm_model_path = svm_model_path;
+	this->classifier_model_path = classifier_model_path;
 	this->labels_file_path = labels_file_path;
 	ReadBinaryProto(tensorflow::Env::Default(), model_path.c_str(), &graph_def);
-	/*tensorflow::SessionOptions options;
+	tensorflow::SessionOptions options;
 	tensorflow::NewSession (options, &session);
-	session->Create (graph_def);*/
+	session->Create (graph_def);
 }
 
 void FacenetClassifier::save_labels () {
@@ -44,8 +44,10 @@ void FacenetClassifier::load_labels () {
 	cout << class_labels.size() << endl;
 }
 
-void FacenetClassifier::preprocess_input_mat () {
-	for (auto &image: input_images) {
+void FacenetClassifier::preprocess_input_mat (long start_index, long end_index) {
+	long i;
+	for (i = start_index; i < end_index; i++) {
+		Mat &image = input_images[i];
 		//mean and std
 		cvtColor(image,image, CV_RGB2BGR);
 		cv::Mat temp = image.reshape(1, image.rows * 3);
@@ -63,7 +65,7 @@ void FacenetClassifier::preprocess_input_mat () {
 	}
 }
 
-void FacenetClassifier::parse_images_path (string directory_path, int depth) {
+long FacenetClassifier::parse_images_path (string directory_path, int depth) {
 	cout << "Parsing Directory: " << directory_path << endl;
 	DIR *dir;
 	struct dirent *entry;
@@ -85,34 +87,41 @@ void FacenetClassifier::parse_images_path (string directory_path, int depth) {
 			else if (entry->d_type != DT_DIR) {
 				file_name = string (entry->d_name);
 				file_path = directory_path + "/" + file_name;
-				Mat image = imread (file_path);
-				if (image.empty() || image.rows !=160 || image.cols !=160)
-					cout << "Ignoring Image " + file_path << endl;
-				else {
-					cout << file_path << ":" << class_count << endl;					
-					input_images.push_back (image);
-					output_labels.push_back (class_count); //For Training
-					mat_training_ints.push_back (class_count);
-					input_files.push_back (file_path); //For Classification
-				}
+				cout << file_path << ":" << class_count << endl;					
+				output_labels.push_back (class_count); //For Training
+				mat_training_ints.push_back (class_count);
+				input_files.push_back (file_path); //For Classification
 			}
 		}
 		closedir (dir);
 	}
+	return input_files.size ();
 }
 
-void FacenetClassifier::create_input_tensor () {
-	cout << "Using " << input_images.size() << " images" << endl;
+void FacenetClassifier::load_input_images (long start_index, long end_index) {
+	long i;
+	for (i = start_index; i < end_index; i++) {
+		cout << "Loading Image: " << input_files[i] << endl;
+		Mat image = imread (input_files[i].c_str());
+		if (image.empty() || image.rows !=160 || image.cols !=160)
+			cout << "Ignoring Image " + input_files[i] << endl;
+		input_images.push_back (image);
+	}
+}
 
-	Tensor input_tensor(DT_FLOAT, TensorShape({(int) input_images.size(), 160, 160, 3}));
+void FacenetClassifier::create_input_tensor (long start_index, long end_index) {
+	cout << "Using " << input_images.size() << " images" << endl;
+	cout << "Start Index:" << start_index << " End Index:" << end_index << endl;
+	Tensor input_tensor(DT_FLOAT, TensorShape({(int) (end_index - start_index), 160, 160, 3}));
 	// get pointer to memory for that Tensor
 	float *p = input_tensor.flat<float>().data();
 	int i;
 	
-	for (i = 0; i < input_images.size(); i++) {
+	for (i = 0; i < (end_index - start_index) ; i++) {
 		// create a "fake" cv::Mat from it 
-		Mat camera_image(160 , 160, CV_32FC3, p + i*160*160*3);	
-		input_images[i].convertTo(camera_image, CV_32FC3);
+
+		Mat camera_image(160, 160, CV_32FC3, p + i*160*160*3);	
+		input_images[i + start_index].convertTo(camera_image, CV_32FC3);
 	}
 	cout << input_tensor.DebugString() << endl;
 	this->input_tensor = Tensor (input_tensor);
@@ -124,7 +133,7 @@ void FacenetClassifier::create_phase_tensor () {
 	this->phase_tensor = Tensor (phase_tensor);
 }
 
-void FacenetClassifier::run () {
+void FacenetClassifier::run (long start_index, long end_index) {
 	string input_layer = "input:0";
 	string phase_train_layer = "phase_train:0";
 	string output_layer = "embeddings:0";
@@ -146,22 +155,20 @@ void FacenetClassifier::run () {
 
 	float *p = outputs[0].flat<float>().data();
 	Mat output_mat;
-	for (int i = 0; i < input_images.size(); i++) {		
-		Mat mat_row (cv::Size (128, 1), CV_32F, p + i*128, Mat::AUTO_STEP);
-  	//cout << "Mat Row: " << mat_row << endl;
-		Mat mat_row_float, mat_tensor_reshaped;
-		mat_row.convertTo (mat_row_float, CV_32F);
-		mat_tensor_reshaped = mat_row_float.reshape (0,1);
-		//mat_training_tensors.push_back (mat_tensor_reshaped);
+	for (int i = start_index; i < end_index; i++) {		
+		Mat mat_row (cv::Size (128, 1), CV_32F, p + (i - start_index)*128, Mat::AUTO_STEP);
 		mat_training_tensors.push_back (mat_row);
-		//output_mat.push_back (mat_row);
-		if (i == 0)
+		if (output_mat.empty())
 			output_mat = mat_row;
 		else
 			vconcat (output_mat, mat_row, output_mat);
 	}
-	this->output_mat = output_mat.clone ();
+	if (this->output_mat.empty())
+		this->output_mat = output_mat.clone ();
+	else
+		vconcat (this->output_mat, output_mat.clone (), this->output_mat);
 	output_mat.release ();
+	cout << "Output Mat: " << this->output_mat.size () << endl;
 	session->Close ();
 	delete session;
 }
@@ -196,11 +203,11 @@ void FacenetClassifier::save_mlp () {
 	cerr << train_data.size() << " " << train_classes.size() << endl;
 
 	ann->train(train_data, ml::ROW_SAMPLE, train_classes);
-	ann->save (svm_model_path);
+	ann->save (classifier_model_path);
 }
 
 void FacenetClassifier::load_mlp () {
-	ann = ann->load (svm_model_path);	
+	ann = ann->load (classifier_model_path);	
 }
 
 void FacenetClassifier::predict_mlp_labels () {
@@ -228,11 +235,18 @@ void FacenetClassifier::clear_input_images () {
         input_files.clear ();
 }
 
+void FacenetClassifier::release_batch_images (long start_index, long end_index) {
+	long i;
+	for (i = start_index; i < end_index; i++) {
+		input_images[i].release();
+	}
+}
+
 void FacenetClassifier::save_svm () {
 	svm = SVM::create();
 	svm->setKernel(SVM::LINEAR);
 	svm->train(output_mat, ROW_SAMPLE, output_labels);
-	svm->save(svm_model_path);
+	svm->save(classifier_model_path);
 	cout << "Training Complete" << endl;
 }
 
@@ -244,13 +258,13 @@ void FacenetClassifier::save_knn () {
 	training_labels_file << "classifications" << mat_training_floats;
 	training_labels_file.release ();
 
-	FileStorage training_tensors_file (svm_model_path, FileStorage::WRITE);
+	FileStorage training_tensors_file (classifier_model_path, FileStorage::WRITE);
 	training_tensors_file << "images" << mat_training_tensors;
 	training_tensors_file.release ();
 }
 
 void FacenetClassifier::load_svm () {
-	svm = Algorithm::load<SVM>(svm_model_path);
+	svm = Algorithm::load<SVM>(classifier_model_path);
 	cout << "SVM Model Loaded" << endl;
 }
 
@@ -273,7 +287,7 @@ void FacenetClassifier::load_knn () {
 	labels_knn.release();
 	cout << "KNN Labels: " << mat_training_ints.size() << endl;
 	cout << "Reading " << model_path << endl;
-	FileStorage tensors (svm_model_path, FileStorage::READ);
+	FileStorage tensors (classifier_model_path, FileStorage::READ);
 	tensors["images"] >> mat_training_tensors;
 	tensors.release();
 	cout << "KNN Tensors: " << mat_training_tensors.size() << endl;
@@ -288,6 +302,9 @@ void FacenetClassifier::predict_knn_labels () {
 	float current_class_float, response, distance;
 	float prediction;
 	int j;
+	cout << "Input Images: " << input_images.size() << endl;
+	cout << "mat_training_tensors: " << mat_training_tensors.size () << endl;
+	cout << "Input Files: " << input_files.size () << endl;
 	for (int i = 0; i < input_images.size(); i++) {
 		Mat input_mat, input_mat_flattened;
 		output_mat.row(i).convertTo (input_mat, CV_32FC3);
@@ -297,6 +314,7 @@ void FacenetClassifier::predict_knn_labels () {
 		current_class_float = (float) current_class.at<float>(0,0);
 		response = (float) current_response.at<float>(0,0);
 		distance = (float) current_distance.at<float>(0,0);
+		cout << "Output Index: " << i << endl;
 		cout << mat_training_tensors.row(i).size() << " " << prediction << " " << input_files[i] << ": " << current_class_float << " " << distance << endl;
 	}
 }
