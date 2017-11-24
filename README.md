@@ -3,11 +3,11 @@ Facenet C++ Classifier
 - This is C++ implementation of the Facenet classifier for the Facenet project by David Sandberg https://github.com/davidsandberg/facenet
 - Part of the Tensor Flow code has been taken from https://github.com/davidsandberg/facenet/issues/357 and https://github.com/tensorflow/tensorflow/issues/8033
 - Preprocessing of Images is done using code posted by knighthappy on https://github.com/davidsandberg/facenet/issues/357
-- It has been compiled & run using OpenCV 3.3.0 and Tensor Flow 1.3.0 on Fedora 26 x86_64
+- It has been compiled & run using OpenCV 3.3.0 and Tensor Flow 1.4.0 on Fedora 26 x86_64
 
 Usage
 ====================
-- ./facenet_classify <TRAIN|CLASSIFY>  <Path/To/20170512-110547.pb> <Path/To/Image/Directory/Structure> <Path/To/SVM/Model> <Path/To/SVM/Labels>
+- ./classify <TRAIN|CLASSIFY>  <Path/To/TensorFlowModel> <Path/To/Image/Directory/Structure> <Path/To/Classifier/Model> <Classifier/Class/Labels> <SVM|KNN|MLP>
 - Directory structure should be <class_name>/<image_files>
 - Face Images Should be 160x160
 
