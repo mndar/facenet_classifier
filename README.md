@@ -20,3 +20,9 @@ Instructions to compile Tensor Flow C++ shared library
 =====================
 - https://www.tensorflow.org/install/install_sources to get libtensorflow_framework.so in /usr/lib/python2.7/site-packages/tensorflow/
 - http://tuatini.me/building-tensorflow-as-a-standalone-project/
+
+
+Compiling using Makefile
+========================
+- http://czarsoftech.com/opensource/downloads/tensorflow/Makefile
+- http://czarsoftech.com/opensource/downloads/tensorflow/tensorflow_gentoo_armv7a.md
