@@ -1,0 +1,19 @@
+CC = g++
+CPPFLAGS = -c -g
+
+DEPS = facenet_tf.h
+SOURCES = classify.cpp facenet_tf.cpp
+CPPFLAGS += -I../include/public/ -I../include -I../include/unsupported `pkg-config --cflags opencv`
+LDFLAGS += -L../lib -ltensorflow -lnsync `pkg-config --libs opencv` -lm -ldl -lpthread -lprotobuf -lprotobuf-lite
+
+OBJ = $(SOURCES:.cpp=.o)
+
+%.o : %.cpp $(DEPS)
+	$(CC) -std=c++11 -c -o $@ $< $(CPPFLAGS)
+
+classify: $(OBJ)
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+clean:
+	rm *.o classify
+	
