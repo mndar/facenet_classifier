@@ -24,5 +24,5 @@ Instructions to compile Tensor Flow C++ shared library
 
 Compiling using Makefile
 ========================
-- http://czarsoftech.com/opensource/downloads/tensorflow/Makefile
-- http://czarsoftech.com/opensource/downloads/tensorflow/tensorflow_gentoo_armv7a.md
+- http://www.czarsoftech.com/opensource/downloads/tensorflow/Makefile
+- http://www.czarsoftech.com/opensource/downloads/tensorflow/tensorflow_gentoo_armv7a.md
