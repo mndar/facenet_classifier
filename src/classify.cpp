@@ -2,10 +2,9 @@
 #include <string>
 #include "facenet_tf.h"
 
-#ifndef DEBUG
-#define DEBUG cout << __FUNCTION__ << ":" << __LINE__ << endl;
-#endif
 using namespace std;
+
+const cv::Size image_size = cv::Size(160, 160);
 
 int main(int argc, char *argv[]) {
     if (argc < 6) {
@@ -21,41 +20,44 @@ int main(int argc, char *argv[]) {
     images_path = string(argv[3]);
     classifier_model_path = string(argv[4]);
     labels_file_path = string(argv[5]);
-    long input_files_count;
-    int i;
-    long end_index;
 
-    FacenetClassifier<cv::ml::KNearest> classifier(operation, model_path, labels_file_path);
+    FacenetClassifier<cv::ml::KNearest> classifier(operation, model_path);
     classifier.batch_size = 1000;
 
-    input_files_count = classifier.parse_images_path(images_path, 0);
+    Mat results;
 
-    for (i = 0; i < input_files_count; i += classifier.batch_size) {
-        cout << "Processing Images: " << i << " to " << i + classifier.batch_size - 1 << endl;
-        if ((i + classifier.batch_size) > input_files_count)
-            end_index = input_files_count;
-        else
-            end_index = i + classifier.batch_size;
-        classifier.load_input_images(i, end_index);
-        classifier.preprocess_input_mat(i, end_index);
-        classifier.create_input_tensor(i, end_index);
-        classifier.create_phase_tensor();
-        classifier.run(i, end_index);
-        classifier.release_batch_images(i, end_index);
+    auto input_files = classifier.parse_images_path(images_path, 0);
+    for (const auto &file : input_files.first) {
+        cv::Mat image = cv::imread(file);
+        if (image.empty()) {
+            cerr << "Cannot load image from " << file << endl;
+        } else if (image.size() != image_size) {
+            cerr << "Image " << file << " has different size than " << image_size << ", resizing it" << endl;
+            cv::resize(image, image, image_size);
+        }
+        classifier.preprocess_input_mat(image);
+        Tensor input_tensor = classifier.create_input_tensor(image);
+        Tensor phase_tensor = classifier.create_phase_tensor();
+        cv::Mat output = classifier.run(input_tensor, phase_tensor);
+        if (results.empty()) {
+            results = output;
+        } else {
+            cv::vconcat(results, output, results);
+        }
     }
 
     if (operation == "TRAIN") {
-        classifier.train();
+        classifier.train(results, input_files.second);
         classifier.classifier.save(classifier_model_path);
-        classifier.save_labels();
+        classifier.save_labels(labels_file_path);
     } else if (operation == "CLASSIFY") {
         classifier.classifier.load(classifier_model_path);
-        classifier.load_labels();
-        for (int i = 0; i < classifier.input_images.size(); i++) {
+        classifier.load_labels(labels_file_path);
+        for (int i = 0; i < input_files.first.size(); i++) {
             Mat input_mat;
             Mat result;
-            classifier.output_mat.row(i).convertTo(input_mat, CV_32F);
-            cout << classifier.classifier.predict(input_mat) << " " << classifier.input_files[i] << endl;
+            results.row(i).convertTo(input_mat, CV_32F);
+            cout << classifier.classifier.predict(input_mat) << " " << input_files.second[i] << endl;
         }
     }
 

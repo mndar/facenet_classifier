@@ -30,47 +30,33 @@ template<typename Classifier_t = cv::ml::KNearest>
 class FacenetClassifier {
 private:
     vector<Label> class_labels;
-    vector<int> output_labels, training_labels;
-    string operation, model_path, labels_file_path;
+    string operation, model_path;
     tensorflow::GraphDef graph_def;
     tensorflow::Session *session;
-    Tensor input_tensor, phase_tensor;
     fstream labels_file;
-    Mat mat_training_tensors;
 
 public:
     Classifier<Classifier_t> classifier;
-    vector<Mat> input_images;
-    Mat output_mat;
-    vector<string> input_files;
 
     int batch_size;
 
-    FacenetClassifier(string operation, string model, string labels_file_path);
+    FacenetClassifier(string operation, string model);
 
-    long parse_images_path(string images_directory_path, int depth);
+    std::pair<std::vector<std::string>, std::vector<int>> parse_images_path(string images_directory_path, int depth);
 
-    void load_input_images(long, long);
+    Tensor create_input_tensor(const cv::Mat &image);
 
-    void create_input_tensor(long, long);
+    Tensor create_phase_tensor();
 
-    void create_phase_tensor();
+    cv::Mat run(Tensor &input_tensor, Tensor &phase_tensor);
 
-    void run(long, long);
+    void preprocess_input_mat(cv::Mat &image);
 
-    void release_batch_images(long, long);
+    void save_labels(const std::string &file);
 
-    void preprocess_input_mat(long, long);
+    void load_labels(const std::string &file);
 
-    void save_labels();
-
-    void load_labels();
-
-    void set_input_images(std::vector<Mat>, std::vector<string>);
-
-    void clear_input_images();
-
-    void train();
+    void train(const cv::Mat &samples, const std::vector<int> &labels);
 
 };
 
