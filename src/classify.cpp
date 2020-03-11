@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     classifier_model_path = string(argv[4]);
     labels_file_path = string(argv[5]);
 
-    FacenetClassifier<cv::ml::KNearest> classifier(operation, model_path);
+    Facenet::FacenetClassifier<cv::ml::ANN_MLP> classifier(model_path);
     classifier.batch_size = 1000;
 
     Mat results;

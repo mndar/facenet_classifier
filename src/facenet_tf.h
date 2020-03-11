@@ -20,45 +20,51 @@ using namespace tensorflow;
 using namespace tensorflow::ops;
 using namespace cv;
 
-class Label {
-public:
-    int class_number;
-    string class_name;
-};
+namespace Facenet {
 
-template<typename Classifier_t = cv::ml::KNearest>
-class FacenetClassifier {
-private:
-    vector<Label> class_labels;
-    string operation, model_path;
-    tensorflow::GraphDef graph_def;
-    tensorflow::Session *session;
-    fstream labels_file;
+    class Label {
+    public:
+        int class_number;
+        string class_name;
+    };
 
-public:
-    Classifier<Classifier_t> classifier;
+    template<typename Classifier_t>
+    class FacenetClassifier {
+    private:
+        vector<Label> class_labels;
+        tensorflow::GraphDef graph_def;
+        tensorflow::Session *session;
+        fstream labels_file;
 
-    int batch_size;
+    public:
+        Classifier<Classifier_t> classifier;
 
-    FacenetClassifier(string operation, string model);
+        int batch_size;
 
-    std::pair<std::vector<std::string>, std::vector<int>> parse_images_path(string images_directory_path, int depth);
+        explicit FacenetClassifier(const string &model_path);
 
-    Tensor create_input_tensor(const cv::Mat &image);
+        ~FacenetClassifier();
 
-    Tensor create_phase_tensor();
+        std::pair<std::vector<std::string>, std::vector<int>>
+        parse_images_path(string images_directory_path, int depth);
 
-    cv::Mat run(Tensor &input_tensor, Tensor &phase_tensor);
+        Tensor create_input_tensor(const cv::Mat &image);
 
-    void preprocess_input_mat(cv::Mat &image);
+        Tensor create_phase_tensor();
 
-    void save_labels(const std::string &file);
+        cv::Mat run(Tensor &input_tensor, Tensor &phase_tensor);
 
-    void load_labels(const std::string &file);
+        void preprocess_input_mat(cv::Mat &image);
 
-    void train(const cv::Mat &samples, const std::vector<int> &labels);
+        void save_labels(const std::string &file);
 
-};
+        void load_labels(const std::string &file);
+
+        void train(const cv::Mat &samples, const std::vector<int> &labels);
+
+    };
+
+}
 
 #endif
 
