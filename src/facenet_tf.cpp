@@ -5,7 +5,8 @@
 namespace Facenet {
 
     template<typename Classifier_t>
-    FacenetClassifier<Classifier_t>::FacenetClassifier(const string &model_path) {
+    FacenetClassifier<Classifier_t>::FacenetClassifier(const std::string &model_path,
+                                                       const std::string &classifier_path) {
         Status status = ReadBinaryProto(tensorflow::Env::Default(), model_path, &graph_def);
         if (!status.ok()) {
             throw std::runtime_error(status.error_message());
@@ -20,38 +21,14 @@ namespace Facenet {
         if (!status.ok()) {
             throw std::runtime_error(status.error_message());
         }
+
+        classifier.load(classifier_path);
     }
 
     template<typename Classifier_t>
     FacenetClassifier<Classifier_t>::~FacenetClassifier() {
         Status status = session->Close();
         delete session;
-    }
-
-    template<typename Classifier_t>
-    void FacenetClassifier<Classifier_t>::save_labels(const std::string &file) {
-        labels_file.open(file, fstream::out);
-
-        for (Label label: class_labels) {
-            labels_file << label.class_number << " " << label.class_name << endl;
-        }
-        labels_file.close();
-    }
-
-    template<typename Classifier_t>
-    void FacenetClassifier<Classifier_t>::load_labels(const std::string &file) {
-        class_labels.clear();
-        labels_file.open(file, fstream::in);
-        int count = 0;
-        while (true) {
-            if (labels_file.eof())
-                break;
-            Label label;
-            labels_file >> label.class_number >> label.class_name;
-            class_labels.push_back(label);
-            count++;
-        }
-        labels_file.close();
     }
 
     template<typename Classifier_t>
@@ -77,26 +54,24 @@ namespace Facenet {
         std::pair<std::vector<std::string>, std::vector<int>> files;
         DIR *dir;
         struct dirent *entry;
-        static int class_count = -1;
-        string class_name;
-        string file_name, file_path;
+        static int class_id = 0;
         if ((dir = opendir(directory_path.c_str())) != NULL) {
             while ((entry = readdir(dir)) != NULL) {
                 if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-                    class_name = string(entry->d_name);
-                    class_count++;
-                    auto r = parse_images_path(directory_path + "/" + class_name, depth + 1);
+                    std::string class_id_str = string(entry->d_name);
+                    try {
+                        class_id = std::stoi(class_id_str);
+                    } catch (std::exception &e) {
+                        LOG(ERROR) << "Cannot get class if for " << entry->d_name << ": " << e.what() << std::endl;
+                    }
+
+                    auto r = parse_images_path(directory_path + "/" + class_id_str, depth + 1);
                     files.first.insert(files.first.end(), r.first.begin(), r.first.end());
                     files.second.insert(files.second.end(), r.second.begin(), r.second.end());
-                    Label label;
-                    label.class_number = class_count;
-                    label.class_name = class_name;
-                    class_labels.push_back(label);
                 } else if (entry->d_type != DT_DIR) {
-                    file_name = string(entry->d_name);
-                    file_path = directory_path + "/" + file_name;
+                    std::string file_path = directory_path + "/" + string(entry->d_name);
                     files.first.emplace_back(file_path);
-                    files.second.emplace_back(class_count);
+                    files.second.emplace_back(class_id);
                 }
             }
             closedir(dir);

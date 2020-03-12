@@ -22,26 +22,16 @@ using namespace cv;
 
 namespace Facenet {
 
-    class Label {
-    public:
-        int class_number;
-        string class_name;
-    };
-
     template<typename Classifier_t>
     class FacenetClassifier {
     private:
-        vector<Label> class_labels;
         tensorflow::GraphDef graph_def;
         tensorflow::Session *session;
-        fstream labels_file;
 
     public:
         Classifier<Classifier_t> classifier;
 
-        int batch_size;
-
-        explicit FacenetClassifier(const string &model_path);
+        explicit FacenetClassifier(const std::string &model_path, const std::string &classifier_path);
 
         ~FacenetClassifier();
 
@@ -55,10 +45,6 @@ namespace Facenet {
         cv::Mat run(Tensor &input_tensor, Tensor &phase_tensor);
 
         void preprocess_input_mat(cv::Mat &image);
-
-        void save_labels(const std::string &file);
-
-        void load_labels(const std::string &file);
 
         void train(const cv::Mat &samples, const std::vector<int> &labels);
 

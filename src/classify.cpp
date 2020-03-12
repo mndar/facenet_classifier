@@ -21,8 +21,7 @@ int main(int argc, char *argv[]) {
     classifier_model_path = string(argv[4]);
     labels_file_path = string(argv[5]);
 
-    Facenet::FacenetClassifier<cv::ml::ANN_MLP> classifier(model_path);
-    classifier.batch_size = 1000;
+    Facenet::FacenetClassifier<cv::ml::ANN_MLP> classifier(model_path, classifier_model_path);
 
     Mat results;
 
@@ -49,10 +48,7 @@ int main(int argc, char *argv[]) {
     if (operation == "TRAIN") {
         classifier.train(results, input_files.second);
         classifier.classifier.save(classifier_model_path);
-        classifier.save_labels(labels_file_path);
     } else if (operation == "CLASSIFY") {
-        classifier.classifier.load(classifier_model_path);
-        classifier.load_labels(labels_file_path);
         for (int i = 0; i < input_files.first.size(); i++) {
             Mat input_mat;
             Mat result;
