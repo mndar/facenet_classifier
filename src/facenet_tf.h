@@ -15,11 +15,6 @@
 
 #include "Classifier.hpp"
 
-using namespace std;
-using namespace tensorflow;
-using namespace tensorflow::ops;
-using namespace cv;
-
 namespace Facenet {
 
     template<typename Classifier_t>
@@ -27,6 +22,10 @@ namespace Facenet {
     private:
         tensorflow::GraphDef graph_def;
         tensorflow::Session *session;
+
+        const std::string input_layer = "input:0";
+        const std::string phase_train_layer = "phase_train:0";
+        const std::string output_layer = "embeddings:0";
 
     public:
         Classifier<Classifier_t> classifier;
@@ -36,13 +35,13 @@ namespace Facenet {
         ~FacenetClassifier();
 
         std::pair<std::vector<std::string>, std::vector<int>>
-        parse_images_path(string images_directory_path, int depth);
+        parse_images_path(const std::string &images_directory_path, int depth);
 
-        Tensor create_input_tensor(const cv::Mat &image);
+        tensorflow::Tensor create_input_tensor(const cv::Mat &image);
 
-        Tensor create_phase_tensor();
+        tensorflow::Tensor create_phase_tensor();
 
-        cv::Mat run(Tensor &input_tensor, Tensor &phase_tensor);
+        cv::Mat run(tensorflow::Tensor &input_tensor, tensorflow::Tensor &phase_tensor);
 
         void preprocess_input_mat(cv::Mat &image);
 

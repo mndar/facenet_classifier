@@ -45,7 +45,7 @@ namespace Facenet {
     inline bool Classifier<Classifier_t>::load(std::string file) {
         try {
             classifier = cv::Algorithm::load<Classifier_t>(file);
-            ok = classifier->empty();
+            ok = true;
         } catch (std::exception &e) {
             LOG(ERROR) << "Cannot load classifier from " << file << ": " << e.what() << std::endl;
             ok = false;

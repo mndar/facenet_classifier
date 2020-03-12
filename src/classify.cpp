@@ -9,8 +9,8 @@ const cv::Size image_size = cv::Size(160, 160);
 int main(int argc, char *argv[]) {
     if (argc < 6) {
         cout << "Usage:\n"
-                "./facenet_classify <TRAIN|CLASSIFY>  <Path/To/TensorFlowModel> <Path/To/Image/Directory/Structure> <Path/To/Classifier/Model> <Classifier/Class/Labels>\n"
-                "Directory structure should be <class_name>/<image_files>\n"
+                "./facenet_classify <TRAIN|CLASSIFY>  <Path/To/TensorFlowModel> <Path/To/Image/Directory/Structure> <Path/To/Classifier/Model>\n"
+                "Directory structure should be <class_id>/<image_files>\n"
                 "Face Images Should be 160x160\n" << endl;
         return 1;
     }
@@ -19,11 +19,10 @@ int main(int argc, char *argv[]) {
     model_path = string(argv[2]);
     images_path = string(argv[3]);
     classifier_model_path = string(argv[4]);
-    labels_file_path = string(argv[5]);
 
     Facenet::FacenetClassifier<cv::ml::ANN_MLP> classifier(model_path, classifier_model_path);
 
-    Mat results;
+    cv::Mat results;
 
     auto input_files = classifier.parse_images_path(images_path, 0);
     for (const auto &file : input_files.first) {
@@ -35,8 +34,8 @@ int main(int argc, char *argv[]) {
             cv::resize(image, image, image_size);
         }
         classifier.preprocess_input_mat(image);
-        Tensor input_tensor = classifier.create_input_tensor(image);
-        Tensor phase_tensor = classifier.create_phase_tensor();
+        tensorflow::Tensor input_tensor = classifier.create_input_tensor(image);
+        tensorflow::Tensor phase_tensor = classifier.create_phase_tensor();
         cv::Mat output = classifier.run(input_tensor, phase_tensor);
         if (results.empty()) {
             results = output;
@@ -48,15 +47,20 @@ int main(int argc, char *argv[]) {
     if (operation == "TRAIN") {
         classifier.train(results, input_files.second);
         classifier.classifier.save(classifier_model_path);
+        cout << "Model trained successfully and saved to " << classifier_model_path << endl;
     } else if (operation == "CLASSIFY") {
+        if (!classifier.classifier.ok) {
+            LOG(ERROR) << "Classifier is not opened" << endl;
+            return EXIT_FAILURE;
+        }
         for (int i = 0; i < input_files.first.size(); i++) {
-            Mat input_mat;
-            Mat result;
+            cv::Mat input_mat;
             results.row(i).convertTo(input_mat, CV_32F);
-            cout << classifier.classifier.predict(input_mat) << " " << input_files.second[i] << endl;
+            cout << "Predicted: " << classifier.classifier.predict(input_mat) << ", Actual: " << input_files.second[i]
+                 << endl;
         }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 

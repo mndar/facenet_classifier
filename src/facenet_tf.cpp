@@ -7,7 +7,7 @@ namespace Facenet {
     template<typename Classifier_t>
     FacenetClassifier<Classifier_t>::FacenetClassifier(const std::string &model_path,
                                                        const std::string &classifier_path) {
-        Status status = ReadBinaryProto(tensorflow::Env::Default(), model_path, &graph_def);
+        tensorflow::Status status = ReadBinaryProto(tensorflow::Env::Default(), model_path, &graph_def);
         if (!status.ok()) {
             throw std::runtime_error(status.error_message());
         }
@@ -27,7 +27,7 @@ namespace Facenet {
 
     template<typename Classifier_t>
     FacenetClassifier<Classifier_t>::~FacenetClassifier() {
-        Status status = session->Close();
+        tensorflow::Status status = session->Close();
         delete session;
     }
 
@@ -50,15 +50,15 @@ namespace Facenet {
 
     template<typename Classifier_t>
     std::pair<std::vector<std::string>, std::vector<int>>
-    FacenetClassifier<Classifier_t>::parse_images_path(string directory_path, int depth) {
+    FacenetClassifier<Classifier_t>::parse_images_path(const std::string &directory_path, int depth) {
         std::pair<std::vector<std::string>, std::vector<int>> files;
         DIR *dir;
         struct dirent *entry;
         static int class_id = 0;
-        if ((dir = opendir(directory_path.c_str())) != NULL) {
-            while ((entry = readdir(dir)) != NULL) {
+        if ((dir = opendir(directory_path.c_str())) != nullptr) {
+            while ((entry = readdir(dir)) != nullptr) {
                 if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-                    std::string class_id_str = string(entry->d_name);
+                    std::string class_id_str = std::string(entry->d_name);
                     try {
                         class_id = std::stoi(class_id_str);
                     } catch (std::exception &e) {
@@ -69,7 +69,7 @@ namespace Facenet {
                     files.first.insert(files.first.end(), r.first.begin(), r.first.end());
                     files.second.insert(files.second.end(), r.second.begin(), r.second.end());
                 } else if (entry->d_type != DT_DIR) {
-                    std::string file_path = directory_path + "/" + string(entry->d_name);
+                    std::string file_path = directory_path + "/" + entry->d_name;
                     files.first.emplace_back(file_path);
                     files.second.emplace_back(class_id);
                 }
@@ -80,41 +80,38 @@ namespace Facenet {
     }
 
     template<typename Classifier_t>
-    Tensor FacenetClassifier<Classifier_t>::create_input_tensor(const cv::Mat &image) {
-        Tensor input_tensor(DT_FLOAT, TensorShape({1, 160, 160, 3}));
+    tensorflow::Tensor FacenetClassifier<Classifier_t>::create_input_tensor(const cv::Mat &image) {
+        tensorflow::Tensor input_tensor(tensorflow::DT_FLOAT, tensorflow::TensorShape({1, 160, 160, 3}));
         // get pointer to memory for that Tensor
         float *p = input_tensor.flat<float>().data();
         // create a "fake" cv::Mat from it
-        Mat camera_image(160, 160, CV_32FC3, p);
+        cv::Mat camera_image(160, 160, CV_32FC3, p);
         image.convertTo(camera_image, CV_32FC3);
         return input_tensor;
     }
 
     template<typename Classifier_t>
-    Tensor FacenetClassifier<Classifier_t>::create_phase_tensor() {
+    tensorflow::Tensor FacenetClassifier<Classifier_t>::create_phase_tensor() {
         tensorflow::Tensor phase_tensor(tensorflow::DT_BOOL, tensorflow::TensorShape());
         phase_tensor.scalar<bool>()() = false;
         return phase_tensor;
     }
 
     template<typename Classifier_t>
-    cv::Mat FacenetClassifier<Classifier_t>::run(Tensor &input_tensor, Tensor &phase_tensor) {
-        string input_layer = "input:0";
-        string phase_train_layer = "phase_train:0";
-        string output_layer = "embeddings:0";
+    cv::Mat FacenetClassifier<Classifier_t>::run(tensorflow::Tensor &input_tensor, tensorflow::Tensor &phase_tensor) {
         std::vector<tensorflow::Tensor> outputs;
-        std::vector<std::pair<string, tensorflow::Tensor>> feed_dict = {
+        std::vector<std::pair<std::string, tensorflow::Tensor>> feed_dict = {
                 {input_layer,       input_tensor},
                 {phase_train_layer, phase_tensor},
         };
-        Status run_status = session->Run(feed_dict, {output_layer}, {}, &outputs);
+        tensorflow::Status run_status = session->Run(feed_dict, {output_layer}, {}, &outputs);
         if (!run_status.ok()) {
-            LOG(ERROR) << "Running model failed: " << run_status << "\n";
+            LOG(ERROR) << "Running model failed: " << run_status << std::endl;
             return cv::Mat();
         }
 
         float *p = outputs[0].flat<float>().data();
-        Mat mat_row(cv::Size(128, 1), CV_32F, p, Mat::AUTO_STEP);
+        cv::Mat mat_row(cv::Size(128, 1), CV_32F, p, cv::Mat::AUTO_STEP);
         return mat_row;
     }
 
