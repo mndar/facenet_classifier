@@ -14,6 +14,9 @@ namespace Facenet {
     template<typename Classifier_t>
     class Classifier {
     public:
+        float threshold = 0.7; // it only works with MLP so far
+        bool ok = false;
+
         Classifier();
 
         void save(std::string file);
@@ -40,13 +43,30 @@ namespace Facenet {
 
     template<typename Classifier_t>
     inline bool Classifier<Classifier_t>::load(std::string file) {
-        classifier = cv::Algorithm::load<Classifier_t>(file);
-        return classifier->empty();
+        try {
+            classifier = cv::Algorithm::load<Classifier_t>(file);
+            ok = classifier->empty();
+        } catch (std::exception &e) {
+            LOG(ERROR) << "Cannot load classifier from " << file << ": " << e.what() << std::endl;
+            ok = false;
+        }
+        return ok;
     }
 
     template<typename Classifier_t>
     inline float Classifier<Classifier_t>::predict(const cv::Mat &input) {
         return classifier->predict(input);
+    }
+
+    template<>
+    inline float Classifier<cv::ml::ANN_MLP>::predict(const cv::Mat &input) {
+        cv::Mat results;
+        float r = classifier->predict(input, results);
+        if (results.at<float>(r) < threshold) {
+            r = -1;
+        }
+        // std::cout << std::endl << results << std::endl;
+        return r;
     }
 
     template<>
