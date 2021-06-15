@@ -1,3 +1,7 @@
+Note: This works very well. I've not been not maintaining it for a while. I'll give you gals and guys some pointers.
+- OpenCV Version
+- Tensorflow Version (This is a major problem. This code was written for a really really old version. I don't even remeber it. I did it in a trance!)
+
 Facenet C++ Classifier
 ====================
 - This is C++ implementation of the Facenet classifier for the Facenet project by David Sandberg https://github.com/davidsandberg/facenet
